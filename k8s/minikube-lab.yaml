@@ -1,0 +1,222 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redis-injection-lab
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: secure-worker-sa
+  namespace: redis-injection-lab
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: redis-injection-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 300m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: redis-injection-lab
+spec:
+  selector:
+    app: redis
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-vulnerable
+  namespace: redis-injection-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-vulnerable
+  template:
+    metadata:
+      labels:
+        app: web-vulnerable
+    spec:
+      containers:
+        - name: web-vulnerable
+          image: redis-injection/web-vulnerable:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-vulnerable
+  namespace: redis-injection-lab
+spec:
+  selector:
+    app: web-vulnerable
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-safe
+  namespace: redis-injection-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-safe
+  template:
+    metadata:
+      labels:
+        app: web-safe
+    spec:
+      containers:
+        - name: web-safe
+          image: redis-injection/web-safe:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_QUEUE_KEY
+              value: mail_jobs_secure
+            - name: JOB_HMAC_SECRET
+              value: supersecret_lab_key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-safe
+  namespace: redis-injection-lab
+spec:
+  selector:
+    app: web-safe
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-vulnerable
+  namespace: redis-injection-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-vulnerable
+  template:
+    metadata:
+      labels:
+        app: worker-vulnerable
+    spec:
+      containers:
+        - name: worker-vulnerable
+          image: redis-injection/worker-vulnerable:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_QUEUE_KEY
+              value: mail_jobs_vuln
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-secure
+  namespace: redis-injection-lab
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-secure
+  template:
+    metadata:
+      labels:
+        app: worker-secure
+    spec:
+      serviceAccountName: secure-worker-sa
+      automountServiceAccountToken: false
+      containers:
+        - name: worker-secure
+          image: redis-injection/worker-secure:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_QUEUE_KEY
+              value: mail_jobs_secure
+            - name: JOB_HMAC_SECRET
+              value: supersecret_lab_key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi

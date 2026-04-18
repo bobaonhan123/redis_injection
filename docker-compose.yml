@@ -1,0 +1,61 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_lab
+    ports:
+      - "6379:6379"
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: mailhog_lab
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+  web:
+    build:
+      context: ./web
+    container_name: web_lab
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs
+      - JOB_HMAC_SECRET=supersecret_lab_key
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+    ports:
+      - "5000:5000"
+
+  scheduler:
+    build:
+      context: ./scheduler
+    container_name: scheduler_lab
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs
+      - JOB_HMAC_SECRET=supersecret_lab_key
+      - ADMIN_EMAIL=admin@example.com
+      - INTERVAL_SECONDS=30
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ./worker
+    container_name: worker_lab
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs
+      - JOB_HMAC_SECRET=supersecret_lab_key
+      - SMTP_HOST=mailhog
+      - SMTP_PORT=1025
+      - MAIL_FROM=reporter@lab.local
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+      - mailhog

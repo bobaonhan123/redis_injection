@@ -1,0 +1,64 @@
+# Vulnerable lab for red-team/blue-team testing.
+# Attack path: web-vulnerable (5001) -> redis -> worker-vulnerable (mail_jobs_vuln).
+# Defense path: signed envelope -> worker-secure (mail_jobs_secure).
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_lab_vuln
+    ports:
+      - "6379:6379"
+
+  web-vulnerable:
+    build:
+      context: ./web
+      dockerfile: Dockerfile.vulnerable
+    container_name: web_lab_vuln
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
+    ports:
+      - "5001:5000"
+
+  web-safe:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: web_lab_safe
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs_secure
+      - JOB_HMAC_SECRET=supersecret_lab_key
+    depends_on:
+      - redis
+    ports:
+      - "5002:5000"
+
+  worker-vulnerable:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.vulnerable
+    container_name: worker_lab_vuln
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs_vuln
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis
+
+  worker-secure:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.secure
+    container_name: worker_lab_secure
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_QUEUE_KEY=mail_jobs_secure
+      - JOB_HMAC_SECRET=supersecret_lab_key
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis

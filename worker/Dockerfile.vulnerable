@@ -1,0 +1,10 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.vulnerable.txt .
+RUN pip install --no-cache-dir -r requirements.vulnerable.txt
+
+COPY worker_vulnerable.py .
+
+CMD ["python", "worker_vulnerable.py"]

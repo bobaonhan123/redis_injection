@@ -1,0 +1,10 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.secure.txt .
+RUN pip install --no-cache-dir -r requirements.secure.txt
+
+COPY worker_secure.py .
+
+CMD ["python", "worker_secure.py"]
