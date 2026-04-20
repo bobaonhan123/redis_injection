@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cmd /c \"where minikube 2>&1\")",
+      "Bash(cmd /c \"dir \\\\\"C:\\\\Program Files\\\\Kubernetes\\\\Minikube\\\\\" 2>&1\")",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\hosyb\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Packages 2>&1 | findstr /i minikube\")",
+      "Bash(cmd /c \"docker version 2>&1 | head -5\")",
+      "Bash(cmd /c \"docker version 2>&1\")"
+    ]
+  }
+}

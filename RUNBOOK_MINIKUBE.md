@@ -1,31 +1,51 @@
-# Minikube Red Team / Blue Team Runbook
+# Runbook Red Team / Blue Team Trên Minikube
 
-This runbook deploys a local security lab that demonstrates:
-- SSRF in web service
+Tài liệu này được tổ chức theo 3 phase rõ ràng:
+
+- **Phase 1 – Cài đặt (Setup):** Khởi động môi trường lab
+- **Phase 2 – Tấn công (Red Team):** Khai thác SSRF → Redis poisoning → RCE
+- **Phase 3 – Phòng thủ (Blue Team):** Xác minh worker an toàn + NetworkPolicy
+
+**Mục tiêu mô phỏng:**
+- SSRF trên web service
 - Redis queue poisoning
-- pickle deserialization RCE in vulnerable worker
-- defensive validation in secure worker
+- Pickle deserialization RCE trong worker dễ bị tổn thương
+- Cơ chế phòng thủ bằng worker bảo mật + NetworkPolicy
 
-## 1) Start Minikube
+---
 
-```powershell
-minikube start --cpus=4 --memory=4096
-kubectl version --short
-```
+## Phase 1 – Cài Đặt (Setup)
 
-If `minikube` is not recognized on Windows, run with full path:
-
-```powershell
-& "C:\Program Files\Kubernetes\Minikube\minikube.exe" start --driver=docker --cpus=4 --memory=4096
-```
-
-## 1.1) Install local script dependencies
+### 1.1) Cài dependency cho script local
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 ```
 
-## 2) Build images inside Minikube
+**Mục đích:**
+Đảm bảo các script red/blue team chạy được trên máy local.
+
+---
+
+### 1.2) Khởi động Minikube
+
+```powershell
+minikube start --cpus=4 --memory=4096
+kubectl version
+```
+
+Nếu Windows chưa nhận `minikube` trong PATH:
+
+```powershell
+& "C:\Program Files\Kubernetes\Minikube\minikube.exe" start --driver=docker --cpus=4 --memory=4096
+```
+
+**Mục đích:**
+Khởi tạo Kubernetes cluster local để deploy lab.
+
+---
+
+### 1.3) Build image vào Minikube
 
 ```powershell
 minikube image build -t redis-injection/web-vulnerable:latest -f web/Dockerfile.vulnerable web
@@ -34,7 +54,12 @@ minikube image build -t redis-injection/worker-vulnerable:latest -f worker/Docke
 minikube image build -t redis-injection/worker-secure:latest -f worker/Dockerfile.secure worker
 ```
 
-## 3) Deploy Kubernetes resources
+**Mục đích:**
+Nạp image đúng phiên bản local vào node Minikube.
+
+---
+
+### 1.4) Deploy tài nguyên Kubernetes
 
 ```powershell
 kubectl apply -f k8s/minikube-lab.yaml
@@ -42,132 +67,164 @@ kubectl apply -f k8s/network-policies.yaml
 kubectl -n redis-injection-lab get pods
 ```
 
-Wait until all pods are Running.
+**Mục đích:**
+Tạo namespace, deployment, service và network policy cho lab.
 
-## 4) Expose vulnerable web endpoint locally
+> ⚠️ Chỉ chuyển sang Phase 2 khi tất cả pod đã ở trạng thái `Running`.
 
-Open a dedicated terminal:
+---
+
+### 1.5) Mở kênh truy cập web-vulnerable từ local
+
+Mở một terminal riêng và giữ tiến trình này chạy nền:
 
 ```powershell
 kubectl -n redis-injection-lab port-forward svc/web-vulnerable 5000:5000
 ```
 
-## 5) Red Team Attack Details (Step by Step)
+**Mục đích:**
+Mở endpoint local `http://127.0.0.1:5000` để script tấn công sử dụng.
 
-Attack chain objective:
-- Exploit SSRF on `web-vulnerable`
-- Push malicious payload into Redis queue
-- Trigger RCE when `worker-vulnerable` deserializes pickle data
+---
 
-Open a second terminal (keep the port-forward terminal from step 4 running), then execute the commands below one by one.
+## Phase 2 – Tấn Công (Red Team)
 
-### 5.1) Confirm local access to web-vulnerable
+**Mục tiêu phase này:**
+- Tiêm payload độc qua SSRF vào Redis queue
+- Buộc worker dễ bị tổn thương thực thi payload qua `pickle.loads()`
+
+---
+
+### 2.1) Kiểm tra endpoint web-vulnerable hoạt động
 
 ```powershell
 python -c "import requests; print(requests.get('http://127.0.0.1:5000', timeout=5).status_code)"
 ```
 
-Explanation:
-- This command confirms the `port-forward` tunnel is alive.
-- Expected result: `200`.
+**Kỳ vọng:** In ra `200`.
 
-### 5.2) Remove old marker to avoid false positives
+---
+
+### 2.2) Xóa marker cũ
 
 ```powershell
 kubectl -n redis-injection-lab exec deploy/worker-vulnerable -- sh -c "rm -f /tmp/redteam_owned.txt"
 ```
 
-Explanation:
-- Ensures any marker found later was created by the current attack run.
+**Mục đích:**
+Tránh false positive khi xác minh kết quả tấn công.
 
-### 5.3) Launch SSRF -> Redis poisoning
+---
+
+### 2.3) Chạy tấn công SSRF → Redis poisoning
 
 ```powershell
 python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-host redis --queue mail_jobs_vuln
 ```
 
-Explanation:
-- The script generates a malicious pickle payload.
-- The SSRF flaw in web-vulnerable forwards payload bytes to Redis.
-- `worker-vulnerable` consumes from queue with BRPOP and triggers `pickle.loads()`.
-- Expected output includes:
-  - `SSRF request status: 200`
-  - `Queue depth query status: 200`
+**Giải thích:**
+- Script tạo payload pickle độc hại.
+- Endpoint SSRF gửi payload đến Redis.
+- Worker dễ bị tổn thương BRPOP queue và deserialize payload.
 
-### 5.4) Verify marker via script (automatic)
+**Kỳ vọng output:**
+- `SSRF request status: 200`
+- `Queue depth query status: 200`
+
+---
+
+### 2.4) Xác minh marker tự động
 
 ```powershell
 python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-host redis --queue mail_jobs_vuln --verify-k8s --namespace redis-injection-lab
 ```
 
-Explanation:
-- The script replays the attack and checks marker file existence inside the vulnerable pod.
-- Expected output includes: `Marker file detected`.
+**Kỳ vọng output:** Có dòng `Marker file detected`.
 
-### 5.5) Verify marker manually (proof)
+---
+
+### 2.5) Xác minh marker thủ công
 
 ```powershell
 kubectl -n redis-injection-lab exec deploy/worker-vulnerable -- cat /tmp/redteam_owned.txt
 ```
 
-Explanation:
-- Final proof that RCE executed in `worker-vulnerable`.
-- Expected output: `REDTEAM_OWNED`.
+**Kỳ vọng output:** `REDTEAM_OWNED`
 
-### 5.6) Check worker-vulnerable logs (supporting evidence)
+---
+
+### 2.6) Thu thập log worker-vulnerable
 
 ```powershell
 kubectl -n redis-injection-lab logs deploy/worker-vulnerable --tail=120
 ```
 
-Explanation:
-- Use this to correlate queue consumption timing and deserialization behavior.
+**Mục đích:**
+Lưu bằng chứng bổ trợ về thời điểm consume queue và hành vi deserialize.
 
-## 6) Blue Team Verification Details (Step by Step)
+---
 
-Defense objective:
-- Secure worker must reject malicious payload
-- Secure worker must accept valid HMAC-signed payload
-- NetworkPolicy objects must exist
+## Phase 3 – Phòng Thủ (Blue Team)
 
-### 6.1) Run verification script in Kubernetes mode
+**Mục tiêu phase này:**
+- Từ chối payload độc hại
+- Chấp nhận payload hợp lệ (JSON + HMAC)
+- Xác nhận NetworkPolicy tồn tại và hoạt động đúng
+
+---
+
+### 3.1) Chạy script xác minh ở chế độ K8s
 
 ```powershell
 python scripts/blue_team_verify.py --mode k8s --web-base-url http://127.0.0.1:5000 --namespace redis-injection-lab --wait-seconds 8
 ```
 
-Explanation:
-- The script pushes two jobs into `mail_jobs_secure`:
-  - one malicious payload (pickle)
-  - one valid payload (JSON + HMAC)
-- It then reads secure worker logs and checks for NetworkPolicy resources.
-- Expected checklist:
-  - `[x] Rejected malicious payload`
-  - `[x] Accepted valid signed payload`
-  - `[x] Malicious marker was NOT created in secure worker`
-  - `[x] NetworkPolicy objects found`
+**Kỳ vọng checklist:**
+- `[x] Rejected malicious payload`
+- `[x] Accepted valid signed payload`
+- `[x] Malicious marker was NOT created in secure worker`
+- `[x] NetworkPolicy objects found`
 
-### 6.2) Manually confirm worker-secure logs
+---
+
+### 3.2) Kiểm tra log worker-secure
 
 ```powershell
 kubectl -n redis-injection-lab logs deploy/worker-secure --tail=200
 ```
 
-Explanation:
-- Expected to see reject lines (`Dropped ...`) and accept lines (`Accepted signed job ...`).
+**Kỳ vọng:**
+- Có dòng từ chối (`Dropped ...`)
+- Có dòng chấp nhận (`Accepted signed job ...`)
 
-### 6.3) Confirm policy resources exist
+---
+
+### 3.3) Kiểm tra NetworkPolicy
 
 ```powershell
 kubectl -n redis-injection-lab get networkpolicy
 ```
 
-Explanation:
-- Confirms the namespace has the expected deny/allow network rules.
+**Mục đích:**
+Xác nhận namespace có đủ rule deny/allow đã được thiết kế.
 
-## 7) Optional local Docker Compose red/blue verification
+---
 
-This mode is useful when Minikube is not available. It verifies the same attack and defense logic locally.
+### 3.4) Regression test cho pipeline an toàn (tuỳ chọn)
+
+```powershell
+docker compose up -d --build
+python scripts/security_test.py
+```
+
+**Mục đích:**
+Kiểm tra nhanh luồng an toàn mặc định của hệ thống ngoài K8s lab.
+
+---
+
+## Phụ Lục – Chế Độ Local Compose (Khi Không Dùng Minikube)
+
+Nếu không dùng Minikube, có thể mô phỏng nhanh bằng Docker Compose:
 
 ```powershell
 docker compose -f docker-compose.vulnerable.yml up -d --build
@@ -176,18 +233,17 @@ docker compose -f docker-compose.vulnerable.yml exec -T worker-vulnerable cat /t
 python scripts/blue_team_verify.py --mode compose --web-base-url http://localhost:5001 --redis-host redis --secure-queue mail_jobs_secure --compose-file docker-compose.vulnerable.yml --compose-service worker-secure
 ```
 
-Notes:
-- In compose mode, network policy checks are skipped by design.
-- For defense logs: `docker compose -f docker-compose.vulnerable.yml logs worker-secure --tail=200`
-
-Optional safe pipeline regression test (separate stack):
+**Lưu ý:**
+- Ở chế độ compose, script blue-team sẽ bỏ qua kiểm tra NetworkPolicy.
+- Xem log phòng thủ:
 
 ```powershell
-docker compose up -d --build
-python scripts/security_test.py
+docker compose -f docker-compose.vulnerable.yml logs worker-secure --tail=200
 ```
 
-## 8) Cleanup
+---
+
+## Dọn Dẹp (Cleanup)
 
 ```powershell
 kubectl delete -f k8s/network-policies.yaml
