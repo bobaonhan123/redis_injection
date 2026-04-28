@@ -1,0 +1,632 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redis Injection Lab - Slide Deck</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/white.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;600;700&family=Sora:wght@300;400;600&display=swap"
+    />
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --bg-deep: #efe5d8;
+        --ink: #1c1d20;
+        --muted: #4b5563;
+        --accent: #e76f51;
+        --accent-2: #2a9d8f;
+        --accent-3: #e9c46a;
+        --card: rgba(255, 255, 255, 0.78);
+        --card-border: rgba(28, 29, 32, 0.08);
+        --shadow: 0 24px 60px rgba(28, 29, 32, 0.12);
+        --font-title: "Space Grotesk", "Sora", sans-serif;
+        --font-body: "Sora", "Space Grotesk", sans-serif;
+        --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+          "Liberation Mono", "Courier New", monospace;
+      }
+
+      body {
+        background: radial-gradient(
+            1200px 600px at 8% 10%,
+            #fff3d8 0%,
+            #f7f1e6 55%,
+            #e9f2f0 100%
+          )
+          fixed;
+        color: var(--ink);
+      }
+
+      body::before,
+      body::after {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      body::before {
+        background: radial-gradient(
+            260px 260px at 86% 18%,
+            rgba(231, 111, 81, 0.18),
+            transparent 70%
+          ),
+          radial-gradient(
+            240px 240px at 12% 82%,
+            rgba(42, 157, 143, 0.18),
+            transparent 70%
+          );
+      }
+
+      body::after {
+        background-image: linear-gradient(
+            90deg,
+            rgba(28, 29, 32, 0.05) 1px,
+            transparent 1px
+          ),
+          linear-gradient(rgba(28, 29, 32, 0.05) 1px, transparent 1px);
+        background-size: 44px 44px;
+        opacity: 0.2;
+      }
+
+      .reveal {
+        font-family: var(--font-body);
+        font-size: 30px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .reveal h1,
+      .reveal h2,
+      .reveal h3 {
+        font-family: var(--font-title);
+        letter-spacing: -0.02em;
+        text-transform: none;
+      }
+
+      .reveal h1 {
+        font-size: 72px;
+        line-height: 1.05;
+        margin-bottom: 12px;
+      }
+
+      .reveal h2 {
+        font-size: 52px;
+        margin-bottom: 16px;
+      }
+
+      .reveal h3 {
+        font-size: 36px;
+        margin-bottom: 12px;
+      }
+
+      .reveal p {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .reveal .slides {
+        text-align: left;
+      }
+
+      .reveal .slides section {
+        padding: 28px 40px;
+      }
+
+      .slide-card {
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 28px;
+        padding: 28px 32px;
+        box-shadow: var(--shadow);
+      }
+
+      .eyebrow {
+        font-size: 18px;
+        text-transform: uppercase;
+        letter-spacing: 0.22em;
+        color: var(--accent-2);
+        font-weight: 600;
+      }
+
+      .subtitle {
+        font-size: 28px;
+        color: var(--ink);
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .pill {
+        background: #fff;
+        border: 1px solid var(--card-border);
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 6px 14px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .pill.red {
+        border-color: rgba(231, 111, 81, 0.4);
+        color: #c94a2c;
+      }
+
+      .pill.blue {
+        border-color: rgba(42, 157, 143, 0.45);
+        color: #1f7e72;
+      }
+
+      .note {
+        font-size: 20px;
+        color: var(--muted);
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 24px;
+      }
+
+      .grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: #fff;
+        border-radius: 22px;
+        border: 1px solid var(--card-border);
+        padding: 20px;
+        box-shadow: var(--shadow);
+        min-height: 180px;
+      }
+
+      .card h3 {
+        margin-top: 0;
+      }
+
+      .flow {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin-top: 10px;
+      }
+
+      .node {
+        background: #fff;
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        padding: 14px 18px;
+        font-weight: 600;
+        min-width: 150px;
+        text-align: center;
+        box-shadow: var(--shadow);
+      }
+
+      .node.accent {
+        border-color: rgba(231, 111, 81, 0.4);
+        color: #c94a2c;
+      }
+
+      .node.safe {
+        border-color: rgba(42, 157, 143, 0.4);
+        color: #1f7e72;
+      }
+
+      .arrow {
+        font-size: 28px;
+        color: var(--muted);
+      }
+
+      .chain {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+
+      .chain .step {
+        background: #fff;
+        border: 1px solid var(--card-border);
+        border-radius: 16px;
+        padding: 10px 14px;
+        font-weight: 600;
+        position: relative;
+      }
+
+      .chain .step::after {
+        content: "→";
+        margin-left: 12px;
+        color: var(--muted);
+      }
+
+      .chain .step:last-child::after {
+        content: "";
+      }
+
+      .diagram {
+        width: 100%;
+        max-height: 360px;
+        object-fit: contain;
+        border-radius: 18px;
+        border: 1px solid rgba(28, 29, 32, 0.12);
+        background: #fff;
+        padding: 10px;
+      }
+
+      pre code {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        line-height: 1.4;
+        padding: 18px 20px !important;
+        border-radius: 16px;
+        border: 1px solid rgba(28, 29, 32, 0.12);
+      }
+
+      .checklist li {
+        margin-bottom: 10px;
+      }
+
+      .checklist li span {
+        display: inline-block;
+        background: rgba(42, 157, 143, 0.15);
+        color: #1f7e72;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .fade-up {
+        opacity: 0;
+        transform: translateY(12px);
+        animation: fadeUp 0.7s ease forwards;
+      }
+
+      @keyframes fadeUp {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 900px) {
+        .reveal {
+          font-size: 24px;
+        }
+
+        .reveal h1 {
+          font-size: 54px;
+        }
+
+        .reveal h2 {
+          font-size: 40px;
+        }
+
+        .grid-2,
+        .grid-3 {
+          grid-template-columns: 1fr;
+        }
+
+        .flow {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .arrow {
+          transform: rotate(90deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <section>
+          <div class="slide-card">
+            <div class="eyebrow">Redis Injection Lab</div>
+            <h1 class="fade-up">SSRF → Redis Poisoning → RCE</h1>
+            <p class="subtitle fade-up">Red Team / Blue Team simulation on Minikube</p>
+            <div class="meta fade-up">
+              <span class="pill red">Red Team</span>
+              <span class="pill blue">Blue Team</span>
+              <span class="pill">K8s Lab</span>
+              <span class="pill">Local Compose</span>
+            </div>
+            <p class="note fade-up">April 28, 2026</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Team</h2>
+            <div class="grid-3">
+              <div class="card">
+                <h3>Ho Sy Bao Nhan</h3>
+                <p class="note">Team member</p>
+              </div>
+              <div class="card">
+                <h3>Truong Thi Thuong</h3>
+                <p class="note">Team member</p>
+              </div>
+              <div class="card">
+                <h3>Le Thi Kim Oanh</h3>
+                <p class="note">Team member</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Table of Contents</h2>
+            <ul>
+              <li class="fragment">Context and objectives</li>
+              <li class="fragment">Architecture and data flow</li>
+              <li class="fragment">Red Team attack chain</li>
+              <li class="fragment">Blue Team defenses and verification</li>
+              <li class="fragment">Runbook phases and evidence</li>
+              <li class="fragment">Hardening recommendations</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Objectives</h2>
+            <div class="grid-2">
+              <div>
+                <h3>Attack Chain</h3>
+                <p>
+                  Abuse SSRF to inject a payload into the Redis queue, then
+                  trigger pickle deserialization RCE in a vulnerable worker.
+                </p>
+              </div>
+              <div>
+                <h3>Defense Chain</h3>
+                <p>
+                  Replace unsafe serialization with JSON + HMAC, enforce UTF-8
+                  validation, and apply NetworkPolicy to reduce blast radius.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>System Architecture</h2>
+            <div style="margin-top: 16px;">
+              <img
+                class="diagram"
+                src="assets/architecture.png"
+                alt="System architecture diagram"
+              />
+            </div>
+            <p class="note" style="margin-top: 14px;">
+              Redis is the transport layer; execution happens in the consumer.
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Slide Anatomy (Presenter Flow)</h2>
+            <ul>
+              <li class="fragment">Title: one clear message, not a topic label</li>
+              <li class="fragment">Key points: 2 to 4 bullets max</li>
+              <li class="fragment">Evidence: a command, metric, or screenshot</li>
+              <li class="fragment">Talk track: explain the why, not the text</li>
+            </ul>
+            <p class="note">One idea per slide keeps the story crisp.</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <div class="eyebrow">Section</div>
+            <h2>Red Team: Attack Path</h2>
+            <p class="note">SSRF → Redis poisoning → pickle RCE</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Kill Chain (Red Team)</h2>
+            <div class="chain">
+              <div class="step">SSRF /fetch?url=gopher://</div>
+              <div class="step">Redis Queue Poisoning</div>
+              <div class="step">Pickle Deserialization</div>
+              <div class="step">RCE Marker</div>
+            </div>
+            <ul style="margin-top: 16px;">
+              <li class="fragment">SSRF returns HTTP 200 and can reach Redis</li>
+              <li class="fragment">Malicious pickle payload pushed to <code>mail_jobs_vuln</code></li>
+              <li class="fragment">Worker calls <code>pickle.loads()</code> on untrusted bytes</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Red Team Demo</h2>
+            <pre><code class="language-powershell" data-trim>
+# Port-forward web-vulnerable
+kubectl -n redis-injection-lab port-forward svc/web-vulnerable 5000:5000
+
+# SSRF -> Redis poisoning
+python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-host redis --queue mail_jobs_vuln
+
+# Verify marker
+kubectl -n redis-injection-lab exec deploy/worker-vulnerable -- cat /tmp/redteam_owned.txt
+            </code></pre>
+            <p class="note">Expected marker: REDTEAM_OWNED</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Evidence</h2>
+            <div class="grid-2">
+              <div>
+                <h3>Red Team</h3>
+                <pre><code class="language-text" data-trim>
+[red-team] SSRF request status: 200
+[red-team] Queue depth query status: 200
+REDTEAM_OWNED
+                </code></pre>
+              </div>
+              <div>
+                <h3>Blue Team</h3>
+                <pre><code class="language-text" data-trim>
+[x] Rejected malicious payload
+[x] Accepted valid signed payload
+MARKER_ABSENT
+                </code></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <div class="eyebrow">Section</div>
+            <h2>Blue Team: Defense and Verification</h2>
+            <p class="note">HMAC validation + safe parsing + NetworkPolicy</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Defense Layers</h2>
+            <div class="grid-3">
+              <div class="card">
+                <h3>JSON + HMAC</h3>
+                <p>
+                  Accept only valid UTF-8 JSON and verify the signature before processing.
+                </p>
+              </div>
+              <div class="card">
+                <h3>Worker-secure</h3>
+                <p>
+                  Remove pickle usage and log drop reasons (non-UTF8 / invalid JSON).
+                </p>
+              </div>
+              <div class="card">
+                <h3>NetworkPolicy</h3>
+                <p>
+                  Restrict internal traffic and reduce blast radius when a pod is compromised.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Verification Checklist</h2>
+            <ul class="checklist">
+              <li><span>✓</span> Rejected malicious payload</li>
+              <li><span>✓</span> Accepted valid signed payload</li>
+              <li><span>✓</span> Malicious marker was not created</li>
+              <li><span>✓</span> NetworkPolicy objects found</li>
+            </ul>
+            <p class="note">Script: python scripts/blue_team_verify.py --mode k8s ...</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Runbook in 3 Phases</h2>
+            <div class="grid-3">
+              <div class="card">
+                <h3>Phase 1</h3>
+                <p>Start Minikube, build images, apply manifests.</p>
+              </div>
+              <div class="card">
+                <h3>Phase 2</h3>
+                <p>Red Team: SSRF → Redis poisoning → verify marker.</p>
+              </div>
+              <div class="card">
+                <h3>Phase 3</h3>
+                <p>Blue Team: verify secure worker + NetworkPolicy.</p>
+              </div>
+            </div>
+            <p class="note">Details: RUNBOOK_MINIKUBE.md</p>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Hardening Recommendations</h2>
+            <ul>
+              <li class="fragment">Remove or lock SSRF endpoints in production</li>
+              <li class="fragment">Ban unsafe serializers (pickle, yaml.load)</li>
+              <li class="fragment">Disable automountServiceAccountToken when unused</li>
+              <li class="fragment">Use admission policies to block risky pod specs</li>
+              <li class="fragment">Alert on suspicious queue payload sizes</li>
+            </ul>
+          </div>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Takeaways</h2>
+            <div class="grid-2">
+              <div>
+                <h3>Redis is not the execution target</h3>
+                <p>
+                  Redis is the delivery channel. The bug lives in the consumer
+                  that deserializes untrusted data.
+                </p>
+              </div>
+              <div>
+                <h3>Defense-in-depth works</h3>
+                <p>
+                  JSON + HMAC + NetworkPolicy reduces RCE risk and limits lateral movement.
+                </p>
+              </div>
+            </div>
+            <p class="note">Q&amp;A</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
+    <script>
+      Reveal.initialize({
+        hash: true,
+        slideNumber: true,
+        transition: "fade",
+        backgroundTransition: "fade",
+        center: false,
+        width: 1280,
+        height: 720,
+        margin: 0.08,
+        plugins: [RevealHighlight],
+      });
+    </script>
+  </body>
+</html>

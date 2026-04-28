@@ -1,0 +1,29 @@
+@startuml
+left to right direction
+skinparam backgroundColor transparent
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam ArrowColor #4b5563
+skinparam ComponentBorderColor #1c1d20
+skinparam ComponentBackgroundColor #ffffff
+skinparam DatabaseBorderColor #1c1d20
+skinparam DatabaseBackgroundColor #ffffff
+skinparam CloudBorderColor #1c1d20
+skinparam CloudBackgroundColor #ffffff
+
+component "web-vulnerable\n(SSRF)" as web_vuln
+component "web-safe\n(HMAC)" as web_safe
+database "Redis Queue" as redis
+component "Scheduler" as scheduler
+component "worker-vulnerable\n(pickle)" as worker_vuln
+component "worker-secure\n(JSON + HMAC)" as worker_secure
+cloud "MailHog" as mailhog
+
+web_vuln --> redis : LPUSH mail_jobs_vuln
+web_safe --> redis : LPUSH mail_jobs_secure
+scheduler --> redis : periodic jobs
+redis --> worker_vuln : BRPOP mail_jobs_vuln
+redis --> worker_secure : BRPOP mail_jobs_secure
+worker_vuln --> mailhog : SMTP
+worker_secure --> mailhog : SMTP
+@enduml
