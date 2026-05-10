@@ -1,0 +1,46 @@
+@startuml
+left to right direction
+skinparam backgroundColor transparent
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam ArrowColor #4b5563
+skinparam ComponentBorderColor #1c1d20
+skinparam ComponentBackgroundColor #ffffff
+skinparam DatabaseBorderColor #1c1d20
+skinparam DatabaseBackgroundColor #ffffff
+skinparam CloudBorderColor #1c1d20
+skinparam CloudBackgroundColor #ffffff
+skinparam RectangleBorderColor #1c1d20
+skinparam RectangleBackgroundColor #ffffff
+skinparam NoteBackgroundColor #fef3c7
+skinparam NoteBorderColor #d97706
+
+cloud "External\nattacker" as attacker
+
+rectangle "Namespace: redis-injection-lab" as ns {
+  component "web-vulnerable" as web_vuln #ffe7e0
+  component "web-safe" as web_safe
+  database "redis" as redis
+  component "worker-vulnerable" as worker_vuln
+  component "worker-secure" as worker_secure
+}
+
+attacker -[#c0392b,thickness=2]-> web_vuln : ingress :5000
+attacker -[#64748b,thickness=1]-> web_safe : ingress :5000
+
+web_vuln -[#c0392b,thickness=2]-> redis : egress 6379 allowed
+web_safe -[#2a9d8f,thickness=2]-> redis : egress 6379 allowed
+worker_vuln -[#64748b,thickness=1]-> redis : egress 6379 allowed
+worker_secure -[#64748b,thickness=1]-> redis : egress 6379 allowed
+
+web_vuln -[#b91c1c,dashed]-> worker_vuln : blocked
+web_vuln -[#b91c1c,dashed]-> worker_secure : blocked
+web_vuln -[#b91c1c,dashed]-> web_safe : blocked
+
+note right of ns
+NetworkPolicy:
+- default deny
+- only egress to redis
+- web ingress 5000
+end note
+@enduml

@@ -197,7 +197,9 @@
         border: 1px solid var(--card-border);
         padding: 20px;
         box-shadow: var(--shadow);
-        min-height: 180px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
 
       .card h3 {
@@ -240,7 +242,7 @@
 
       .chain {
         display: flex;
-        gap: 12px;
+        gap: 16px;
         flex-wrap: wrap;
         margin-top: 12px;
       }
@@ -252,6 +254,8 @@
         padding: 10px 14px;
         font-weight: 600;
         position: relative;
+        flex-shrink: 0;
+        white-space: nowrap;
       }
 
       .chain .step::after {
@@ -264,23 +268,109 @@
         content: "";
       }
 
+      .diagram-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 16px;
+      }
+
       .diagram {
         width: 100%;
-        max-height: 360px;
+        max-width: 90%;
+        max-height: 380px;
         object-fit: contain;
         border-radius: 18px;
         border: 1px solid rgba(28, 29, 32, 0.12);
         background: #fff;
+        padding: 16px;
+      }
+
+      .diagram-compact .diagram {
+        max-width: 80%;
+        max-height: 120px;
+        padding: 8px;
+      }
+
+      .diagram-compact .slide-card {
+        padding: 22px 26px;
+      }
+
+      .diagram-compact h2 {
+        margin-bottom: 10px;
+        font-size: 44px;
+      }
+
+      .diagram-compact .diagram-wrapper {
+        margin-top: 8px;
+      }
+
+      .diagram-compact ul {
+        margin-top: 8px;
+      }
+
+      .diagram-tight .diagram {
+        max-width: 86%;
+        max-height: 260px;
+        padding: 12px;
+      }
+
+      .diagram-tight .slide-card {
+        padding: 20px 24px;
+      }
+
+      .diagram-tight h2 {
+        margin-bottom: 8px;
+        font-size: 44px;
+      }
+
+      .diagram-tight .diagram-wrapper {
+        margin-top: 8px;
+      }
+
+      .diagram-tight ul {
+        margin-top: 10px;
+      }
+
+      .diagram-tight li {
+        font-size: 26px;
+      }
+
+      .diagram-tight-sm .diagram {
+        max-width: 84%;
+        max-height: 240px;
         padding: 10px;
+      }
+
+      .diagram-tight-sm .slide-card {
+        padding: 18px 22px;
+      }
+
+      .diagram-tight-sm h2 {
+        margin-bottom: 6px;
+        font-size: 42px;
+      }
+
+      .diagram-tight-sm ul {
+        margin-top: 8px;
+      }
+
+      .diagram-tight-sm li {
+        font-size: 24px;
       }
 
       pre code {
         font-family: var(--font-mono);
         font-size: 18px;
         line-height: 1.4;
-        padding: 18px 20px !important;
+        padding: 18px 20px;
         border-radius: 16px;
         border: 1px solid rgba(28, 29, 32, 0.12);
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        word-break: break-all;
+        display: block;
       }
 
       .checklist li {
@@ -310,17 +400,23 @@
         }
       }
 
+      @media (max-width: 1024px) {
+        .grid-3 {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+
       @media (max-width: 900px) {
         .reveal {
           font-size: 24px;
         }
 
         .reveal h1 {
-          font-size: 54px;
+          font-size: 50px;
         }
 
         .reveal h2 {
-          font-size: 40px;
+          font-size: 38px;
         }
 
         .grid-2,
@@ -355,6 +451,11 @@
             </div>
             <p class="note fade-up">April 28, 2026</p>
           </div>
+          <aside class="notes">
+            Hello everyone. Today we walk through a full Redis injection lab
+            that connects an SSRF bug to queue poisoning and finally RCE.
+            The scope is a controlled lab, so the goal is learning, not exploitation.
+          </aside>
         </section>
 
         <section>
@@ -375,6 +476,10 @@
               </div>
             </div>
           </div>
+          <aside class="notes">
+            These are the team members presenting the lab together. We will
+            split the story across architecture, attack path, and defenses.
+          </aside>
         </section>
 
         <section>
@@ -389,6 +494,10 @@
               <li class="fragment">Hardening recommendations</li>
             </ul>
           </div>
+          <aside class="notes">
+            Quick roadmap: objectives first, then architecture, attack chain,
+            defense validation, evidence, and concrete hardening steps.
+          </aside>
         </section>
 
         <section>
@@ -411,12 +520,16 @@
               </div>
             </div>
           </div>
+          <aside class="notes">
+            The story has two halves. First, show how SSRF plus unsafe deserialization
+            becomes RCE. Second, show how JSON + HMAC and policy controls block it.
+          </aside>
         </section>
 
         <section>
           <div class="slide-card">
             <h2>System Architecture</h2>
-            <div style="margin-top: 16px;">
+            <div class="diagram-wrapper">
               <img
                 class="diagram"
                 src="assets/architecture.png"
@@ -427,6 +540,11 @@
               Redis is the transport layer; execution happens in the consumer.
             </p>
           </div>
+          <aside class="notes">
+            Walk left to right: web and scheduler push jobs into Redis, workers pop
+            and send to MailHog. The vulnerable path uses pickle; the secure path
+            validates JSON and HMAC before processing.
+          </aside>
         </section>
 
         <section>
@@ -440,6 +558,11 @@
             </ul>
             <p class="note">One idea per slide keeps the story crisp.</p>
           </div>
+          <aside class="notes">
+            This is the rule of thumb for the deck. Each slide has one message,
+            a small set of bullets, and some evidence. We talk around the slide,
+            not read it verbatim.
+          </aside>
         </section>
 
         <section>
@@ -448,6 +571,100 @@
             <h2>Red Team: Attack Path</h2>
             <p class="note">SSRF → Redis poisoning → pickle RCE</p>
           </div>
+          <aside class="notes">
+            Transition to the offensive path. We will show how the chain works
+            end to end in a safe lab environment.
+          </aside>
+        </section>
+
+        <section>
+          <div class="slide-card">
+            <h2>Attack Focus Map</h2>
+            <div class="diagram-wrapper">
+              <img
+                class="diagram"
+                src="assets/red_team_attack_focus.png"
+                alt="Red team attack focus map"
+              />
+            </div>
+            <ul style="margin-top: 14px;">
+              <li class="fragment">Entry point: SSRF on web-vulnerable</li>
+              <li class="fragment">Delivery: Redis queue mail_jobs_vuln</li>
+              <li class="fragment">Execution: worker-vulnerable pickle loads</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            This slide highlights the exact components the attacker touches.
+            The red path is the exploit chain, while the green path shows the
+            secured queue flow for contrast.
+          </aside>
+        </section>
+
+        <section class="diagram-compact">
+          <div class="slide-card">
+            <h2>Attack Steps (What Gets Hit)</h2>
+            <div class="diagram-wrapper">
+              <img
+                class="diagram"
+                src="assets/red_team_attack_detail.png"
+                alt="Red team attack steps with targets"
+              />
+            </div>
+            <ul style="margin-top: 14px;">
+              <li class="fragment">Step 1: SSRF entry on web-vulnerable /fetch</li>
+              <li class="fragment">Step 2: Gopher payload writes to Redis queue</li>
+              <li class="fragment">Step 3: worker-vulnerable deserializes and executes</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            Walk through each step and point to the exact component hit.
+            The attack surface is the SSRF endpoint; the execution point is
+            pickle deserialization in the vulnerable worker.
+          </aside>
+        </section>
+
+        <section class="diagram-tight">
+          <div class="slide-card">
+            <h2>K8s Pod Blast Visualization</h2>
+            <div class="diagram-wrapper">
+              <img
+                class="diagram"
+                src="assets/k8s_pod_attack_flow.png"
+                alt="Kubernetes pod attack flow diagram"
+              />
+            </div>
+            <ul style="margin-top: 14px;">
+              <li class="fragment">Compromised pod can only egress to Redis</li>
+              <li class="fragment">Direct pod-to-pod probes are blocked</li>
+              <li class="fragment">Attack still works via the queue pull</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            The NetworkPolicy default deny blocks lateral movement. The only
+            allowed egress is Redis, so the attack must travel through the queue.
+          </aside>
+        </section>
+
+        <section class="diagram-tight-sm">
+          <div class="slide-card">
+            <h2>Lateral Blast Attempts (K8s)</h2>
+            <div class="diagram-wrapper">
+              <img
+                class="diagram"
+                src="assets/k8s_pod_lateral_blast.png"
+                alt="Lateral blast attempts between pods"
+              />
+            </div>
+            <ul style="margin-top: 14px;">
+              <li class="fragment">Compromised pod tries to probe other pods</li>
+              <li class="fragment">NetworkPolicy blocks pod-to-pod traffic</li>
+              <li class="fragment">Only Redis egress remains for the attack chain</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            Use this diagram to explain the "blast" attempts: dashed red
+            arrows are blocked, and the only allowed path is to Redis.
+          </aside>
         </section>
 
         <section>
@@ -465,6 +682,11 @@
               <li class="fragment">Worker calls <code>pickle.loads()</code> on untrusted bytes</li>
             </ul>
           </div>
+          <aside class="notes">
+            The SSRF endpoint lets us speak Redis directly. We push a pickle blob
+            into the vulnerable queue, and the worker deserializes it, which is
+            where code execution happens.
+          </aside>
         </section>
 
         <section>
@@ -482,6 +704,11 @@ kubectl -n redis-injection-lab exec deploy/worker-vulnerable -- cat /tmp/redteam
             </code></pre>
             <p class="note">Expected marker: REDTEAM_OWNED</p>
           </div>
+          <aside class="notes">
+            These are the minimal commands for the demo. The key is that the
+            marker file confirms RCE inside the worker container. This is a lab
+            proof only, not a real exploit.
+          </aside>
         </section>
 
         <section>
@@ -506,6 +733,10 @@ MARKER_ABSENT
               </div>
             </div>
           </div>
+          <aside class="notes">
+            The left output shows the attack path succeeded. The right output
+            shows the secure worker rejected the malicious job and stayed clean.
+          </aside>
         </section>
 
         <section>
@@ -514,6 +745,10 @@ MARKER_ABSENT
             <h2>Blue Team: Defense and Verification</h2>
             <p class="note">HMAC validation + safe parsing + NetworkPolicy</p>
           </div>
+          <aside class="notes">
+            Now we switch to defenses. The goal is to block queue poisoning and
+            reduce lateral movement if a pod is compromised.
+          </aside>
         </section>
 
         <section>
@@ -540,6 +775,10 @@ MARKER_ABSENT
               </div>
             </div>
           </div>
+          <aside class="notes">
+            Three layers: strict data format, secure worker behavior, and
+            network segmentation. Each layer cuts off a link in the chain.
+          </aside>
         </section>
 
         <section>
@@ -553,6 +792,10 @@ MARKER_ABSENT
             </ul>
             <p class="note">Script: python scripts/blue_team_verify.py --mode k8s ...</p>
           </div>
+          <aside class="notes">
+            The verification script pushes both bad and good jobs. We expect the
+            secure worker to accept only signed JSON, and to show policy objects.
+          </aside>
         </section>
 
         <section>
@@ -574,6 +817,10 @@ MARKER_ABSENT
             </div>
             <p class="note">Details: RUNBOOK_MINIKUBE.md</p>
           </div>
+          <aside class="notes">
+            This is the operational flow: setup, attack, defend. Each phase is
+            scripted so we can reproduce the results consistently.
+          </aside>
         </section>
 
         <section>
@@ -587,6 +834,10 @@ MARKER_ABSENT
               <li class="fragment">Alert on suspicious queue payload sizes</li>
             </ul>
           </div>
+          <aside class="notes">
+            These are the most practical production controls. The top two remove
+            the exploit path entirely; the rest reduce impact and improve detection.
+          </aside>
         </section>
 
         <section>
@@ -609,6 +860,10 @@ MARKER_ABSENT
             </div>
             <p class="note">Q&amp;A</p>
           </div>
+          <aside class="notes">
+            Final message: the exploit lives in the consumer, not Redis itself.
+            Strong validation and network controls combine to stop the chain.
+          </aside>
         </section>
       </div>
     </div>

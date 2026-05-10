@@ -1,0 +1,42 @@
+@startuml
+left to right direction
+skinparam backgroundColor transparent
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam ArrowColor #4b5563
+skinparam ComponentBorderColor #1c1d20
+skinparam ComponentBackgroundColor #ffffff
+skinparam DatabaseBorderColor #1c1d20
+skinparam DatabaseBackgroundColor #ffffff
+skinparam CloudBorderColor #1c1d20
+skinparam CloudBackgroundColor #ffffff
+skinparam RectangleBorderColor #1c1d20
+skinparam RectangleBackgroundColor #ffffff
+skinparam NoteBackgroundColor #fef3c7
+skinparam NoteBorderColor #d97706
+
+cloud "Attacker\nexternal" as attacker
+
+rectangle "Namespace: redis-injection-lab" as ns {
+  component "web-vulnerable\n(compromised)" as web_vuln #ffe7e0
+  component "web-safe" as web_safe
+  database "redis" as redis
+  component "worker-vulnerable" as worker_vuln
+  component "worker-secure" as worker_secure
+}
+
+attacker -[#c0392b,thickness=2]-> web_vuln : ingress 5000
+
+web_vuln -[#c0392b,thickness=2]-> redis : allowed egress 6379
+web_vuln -[#b91c1c,dashed]-> web_safe : blocked probe
+web_vuln -[#b91c1c,dashed]-> worker_secure : blocked probe
+web_vuln -[#b91c1c,dashed]-> worker_vuln : blocked probe
+
+redis -[#c0392b,thickness=2]-> worker_vuln : queue delivery
+
+note right of ns
+NetworkPolicy:
+- default deny
+- only egress to redis
+end note
+@enduml

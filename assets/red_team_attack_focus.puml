@@ -1,0 +1,43 @@
+@startuml
+left to right direction
+skinparam backgroundColor transparent
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam ArrowColor #4b5563
+skinparam ComponentBorderColor #1c1d20
+skinparam ComponentBackgroundColor #ffffff
+skinparam DatabaseBorderColor #1c1d20
+skinparam DatabaseBackgroundColor #ffffff
+skinparam ArtifactBorderColor #1c1d20
+skinparam ArtifactBackgroundColor #ffffff
+skinparam NoteBackgroundColor #fff4e6
+skinparam NoteBorderColor #e76f51
+skinparam CloudBorderColor #1c1d20
+skinparam CloudBackgroundColor #ffffff
+
+cloud "Attacker\n(external)" as attacker
+component "web-vulnerable\n(SSRF)" as web_vuln #ffe7e0
+database "Redis Queue\nmail_jobs_vuln" as redis #fff7ed
+component "worker-vulnerable\n(pickle loads)" as worker_vuln #ffe7e0
+artifact "/tmp/redteam_owned.txt\nRCE marker" as marker #ffe7e0
+component "web-safe\n(HMAC)" as web_safe
+component "worker-secure\n(JSON + HMAC)" as worker_secure
+
+attacker -[#c0392b,thickness=2]-> web_vuln : /fetch?url=gopher://
+web_vuln -[#c0392b,thickness=2]-> redis : LPUSH mail_jobs_vuln
+redis -[#c0392b,thickness=2]-> worker_vuln : BRPOP mail_jobs_vuln
+worker_vuln -[#c0392b,thickness=2]-> marker : RCE
+
+web_safe -[#2a9d8f,thickness=2]-> redis : LPUSH mail_jobs_secure
+redis -[#2a9d8f,thickness=2]-> worker_secure : BRPOP mail_jobs_secure
+
+note right of web_vuln
+Attack entry point:
+SSRF to Redis
+end note
+
+note right of worker_vuln
+Execution point:
+pickle.loads()
+end note
+@enduml
