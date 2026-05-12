@@ -10,6 +10,7 @@ Tài liệu này được tổ chức theo 3 phase rõ ràng:
 - SSRF trên web service
 - Redis queue poisoning
 - Pickle deserialization RCE trong worker dễ bị tổn thương
+- Lateral blast sang pod khác (trước khi áp NetworkPolicy)
 - Cơ chế phòng thủ bằng worker bảo mật + NetworkPolicy
 
 ---
@@ -63,12 +64,11 @@ Nạp image đúng phiên bản local vào node Minikube.
 
 ```powershell
 kubectl apply -f k8s/minikube-lab.yaml
-kubectl apply -f k8s/network-policies.yaml
 kubectl -n redis-injection-lab get pods
 ```
 
 **Mục đích:**
-Tạo namespace, deployment, service và network policy cho lab.
+Tạo namespace, deployment và service cho lab (bao gồm blast-target).
 
 > ⚠️ Chỉ chuyển sang Phase 2 khi tất cả pod đã ở trạng thái `Running`.
 
@@ -116,10 +116,10 @@ Tránh false positive khi xác minh kết quả tấn công.
 
 ---
 
-### 2.3) Chạy tấn công SSRF → Redis poisoning
+### 2.3) Chạy tấn công SSRF → Redis poisoning + blast lateral
 
 ```powershell
-python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-host redis --queue mail_jobs_vuln
+python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-host redis --queue mail_jobs_vuln --blast-host blast-target --blast-port 8080 --blast-path /
 ```
 
 **Giải thích:**
@@ -130,6 +130,7 @@ python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --redis-h
 **Kỳ vọng output:**
 - `SSRF request status: 200`
 - `Queue depth query status: 200`
+- `reply_preview` có `BLAST_OK`
 
 ---
 
@@ -173,7 +174,30 @@ Lưu bằng chứng bổ trợ về thời điểm consume queue và hành vi de
 
 ---
 
-### 3.1) Chạy script xác minh ở chế độ K8s
+### 3.1) Áp dụng NetworkPolicy để chặn blast lateral
+
+```powershell
+kubectl apply -f k8s/network-policies.yaml
+kubectl -n redis-injection-lab get networkpolicy
+```
+
+**Kỳ vọng:**
+- NetworkPolicy được tạo trong namespace.
+
+---
+
+### 3.2) Thử blast lại sau khi áp NetworkPolicy
+
+```powershell
+python scripts/red_team_attack.py --web-base-url http://127.0.0.1:5000 --blast-host blast-target --blast-port 8080 --blast-path / --blast-only
+```
+
+**Kỳ vọng:**
+- Response báo lỗi network (ví dụ `Network failure`) hoặc `ok: false`.
+
+---
+
+### 3.3) Chạy script xác minh ở chế độ K8s
 
 ```powershell
 python scripts/blue_team_verify.py --mode k8s --web-base-url http://127.0.0.1:5000 --namespace redis-injection-lab --wait-seconds 8
@@ -187,7 +211,7 @@ python scripts/blue_team_verify.py --mode k8s --web-base-url http://127.0.0.1:50
 
 ---
 
-### 3.2) Kiểm tra log worker-secure
+### 3.4) Kiểm tra log worker-secure
 
 ```powershell
 kubectl -n redis-injection-lab logs deploy/worker-secure --tail=200
@@ -199,18 +223,7 @@ kubectl -n redis-injection-lab logs deploy/worker-secure --tail=200
 
 ---
 
-### 3.3) Kiểm tra NetworkPolicy
-
-```powershell
-kubectl -n redis-injection-lab get networkpolicy
-```
-
-**Mục đích:**
-Xác nhận namespace có đủ rule deny/allow đã được thiết kế.
-
----
-
-### 3.4) Regression test cho pipeline an toàn (tuỳ chọn)
+### 3.5) Regression test cho pipeline an toàn (tuỳ chọn)
 
 ```powershell
 docker compose up -d --build

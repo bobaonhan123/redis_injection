@@ -13,9 +13,9 @@ Bo file mo rong cho mo phong tan cong va phong thu tren Minikube:
 
 - `RUNBOOK_MINIKUBE.md`: huong dan tung buoc setup -> attack -> defend -> cleanup
 - `REPORT_RED_BLUE.md`: report checklist trang thai va lenh tai hien
-- `k8s/minikube-lab.yaml`: namespace + deployments/services cho web-vulnerable, redis, worker-vulnerable, worker-secure
+- `k8s/minikube-lab.yaml`: namespace + deployments/services cho web-vulnerable, redis, worker-vulnerable, worker-secure, blast-target
 - `k8s/network-policies.yaml`: network policy cho namespace lab
-- `scripts/red_team_attack.py`: script red team SSRF -> Redis poison -> pickle RCE
+- `scripts/red_team_attack.py`: script red team SSRF -> Redis poison -> pickle RCE (+ blast lateral tuy chon)
 - `scripts/blue_team_verify.py`: script blue team verify payload reject/accept + network policy
 
 Neu muon chay nhanh local bang Docker Compose:

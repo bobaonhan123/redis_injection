@@ -8,6 +8,7 @@ This report documents a local lab simulation for the kill-chain:
 2. Redis queue poisoning
 3. pickle deserialization RCE in vulnerable worker pod
 4. Blue-team controls in secure worker and Kubernetes network policy
+5. Optional lateral blast to an internal pod before NetworkPolicy
 
 The lab is for local security education only.
 
@@ -21,6 +22,7 @@ The lab is for local security education only.
 - [x] Added red-team attack script (`scripts/red_team_attack.py`)
 - [x] Added blue-team verification script (`scripts/blue_team_verify.py`)
 - [x] Added Minikube manifests (`k8s/minikube-lab.yaml`)
+- [x] Added blast target service for lateral demo (`blast-target`)
 - [x] Added Kubernetes NetworkPolicy rules (`k8s/network-policies.yaml`)
 - [x] Added runbook with commands (`RUNBOOK_MINIKUBE.md`)
 
@@ -119,6 +121,7 @@ BLUE_TEAM_K8S_EXIT=0
 - `redis`: message transport queue
 - `worker-vulnerable`: uses `pickle.loads()` on attacker-controlled bytes
 - `worker-secure`: accepts only UTF-8 JSON envelope signed with HMAC
+- `blast-target`: internal HTTP echo service for lateral blast demo (pre-policy)
 
 This demonstrates that Redis is the transport medium, while code execution occurs in the consumer.
 
@@ -128,7 +131,6 @@ This demonstrates that Redis is the transport medium, while code execution occur
 
 ```powershell
 kubectl apply -f k8s/minikube-lab.yaml
-kubectl apply -f k8s/network-policies.yaml
 kubectl -n redis-injection-lab get pods
 ```
 
@@ -138,10 +140,10 @@ kubectl -n redis-injection-lab get pods
 kubectl -n redis-injection-lab port-forward svc/web-vulnerable 5000:5000
 ```
 
-### 3) Trigger SSRF -> Redis LPUSH of malicious pickle payload
+### 3) Trigger SSRF -> Redis LPUSH + blast lateral (pre-policy)
 
 ```powershell
-python scripts/red_team_attack.py --web-base-url http://localhost:5000 --redis-host redis --queue mail_jobs_vuln
+python scripts/red_team_attack.py --web-base-url http://localhost:5000 --redis-host redis --queue mail_jobs_vuln --blast-host blast-target --blast-port 8080 --blast-path /
 ```
 
 ### 4) Confirm RCE marker in vulnerable worker
@@ -152,13 +154,26 @@ kubectl -n redis-injection-lab exec deploy/worker-vulnerable -- cat /tmp/redteam
 
 ## Defense Commands (Blue Team)
 
-### 1) Push malicious and valid signed jobs to secure queue, then inspect behavior
+### 1) Apply NetworkPolicy
+
+```powershell
+kubectl apply -f k8s/network-policies.yaml
+kubectl -n redis-injection-lab get networkpolicy
+```
+
+### 2) Verify blast is blocked after policy
+
+```powershell
+python scripts/red_team_attack.py --web-base-url http://localhost:5000 --blast-host blast-target --blast-port 8080 --blast-path / --blast-only
+```
+
+### 3) Push malicious and valid signed jobs to secure queue, then inspect behavior
 
 ```powershell
 python scripts/blue_team_verify.py --web-base-url http://localhost:5000 --redis-host redis --secure-queue mail_jobs_secure --namespace redis-injection-lab
 ```
 
-### 2) Confirm secure worker logs
+### 4) Confirm secure worker logs
 
 ```powershell
 kubectl -n redis-injection-lab logs deploy/worker-secure --tail=200

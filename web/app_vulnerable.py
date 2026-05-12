@@ -1,7 +1,7 @@
 import socket
 import urllib.parse
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 
@@ -25,13 +25,16 @@ def send_raw_tcp(host: str, port: int, payload: bytes, timeout: float = 3.0) -> 
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify(
-        {
-            "service": "web-vulnerable-ssrf",
-            "note": "For lab only. This endpoint intentionally allows SSRF via gopher.",
-            "usage": "/fetch?url=gopher://redis:6379/_<urlencoded_resp_payload>",
-        }
-    )
+    if request.args.get("format") == "json":
+        return jsonify(
+            {
+                "service": "web-vulnerable-ssrf",
+                "note": "For lab only. This endpoint intentionally allows SSRF via gopher.",
+                "usage": "/fetch?url=gopher://redis:6379/_<urlencoded_resp_payload>",
+            }
+        )
+
+    return render_template("index_vulnerable.html")
 
 
 @app.route("/fetch", methods=["GET"])

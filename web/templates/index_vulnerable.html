@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redis SSRF Lab</title>
+    <style>
+      :root {
+        --bg: #f6f3ee;
+        --card: #fff9f0;
+        --ink: #1f1a17;
+        --accent: #b34700;
+        --accent-2: #0f766e;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 20% 20%, #ffe2b8 0%, transparent 35%),
+          radial-gradient(circle at 80% 80%, #c6f1e4 0%, transparent 30%),
+          var(--bg);
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        width: 100%;
+        max-width: 620px;
+        background: var(--card);
+        border: 1px solid #e8d8c2;
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 12px 24px rgba(31, 26, 23, 0.08);
+      }
+      h1 {
+        margin-top: 0;
+        font-size: clamp(24px, 4vw, 34px);
+      }
+      p.meta {
+        margin-top: -6px;
+        color: #5a4b40;
+      }
+      form {
+        display: grid;
+        gap: 12px;
+        margin-top: 14px;
+      }
+      label {
+        font-weight: 600;
+      }
+      input[type="text"] {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccb7a0;
+        border-radius: 10px;
+        font-size: 16px;
+      }
+      button {
+        border: 0;
+        border-radius: 10px;
+        padding: 12px 16px;
+        font-weight: 700;
+        color: #fff;
+        background: linear-gradient(135deg, var(--accent), #d26f26);
+        cursor: pointer;
+      }
+      .note {
+        margin-top: 16px;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px dashed #c7b39d;
+        background: #fffdf9;
+        font-size: 14px;
+      }
+      code { color: var(--accent-2); }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Redis SSRF Lab</h1>
+      <p class="meta">Demo SSRF qua <code>gopher://</code> de tac dong Redis (lab only).</p>
+
+      <form method="get" action="/fetch">
+        <label for="target_url">Gopher URL</label>
+        <input
+          id="target_url"
+          name="url"
+          type="text"
+          placeholder="gopher://redis:6379/_*1%0D%0A$4%0D%0APING%0D%0A"
+          required
+        />
+        <button type="submit">Gui yeu cau SSRF</button>
+      </form>
+
+      <div class="note">
+        Chi chap nhan <code>gopher://</code>. Ket qua tra ve JSON.
+        <br />
+        Vi du: <code>/fetch?url=gopher://redis:6379/_&lt;urlencoded_payload&gt;</code>
+      </div>
+    </main>
+  </body>
+</html>

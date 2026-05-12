@@ -3,19 +3,24 @@
 ## Tong quan
 Script `scripts/red_team_attack.py` mo phong chuoi tan cong trong lab:
 1) SSRF tu web noi bo -> 2) Gui lenh Redis bang giao thuc RESP -> 3) Worker giai ma pickle bi dau doc dan den RCE.
+4) (Tuy chon) Blast lateral tu web-vulnerable sang pod khac qua SSRF.
 
 Muc tieu la minh hoa lo hong tu duong SSRF den thuc thi lenh trong container worker.
 
 ## Cac phan chinh trong code
 - `RCEPayload`: Tao doi tuong pickle co `__reduce__` de thuc thi lenh he thong khi bi `pickle.loads()`.
 - `build_resp_command()`: Dong goi lenh Redis theo giao thuc RESP, de co the gui truc tiep qua TCP.
-- `send_redis_via_ssrf()`: Tao URL gopher va goi endpoint `/fetch` cua web-vulnerable de gui lenh Redis thong qua SSRF.
+- `send_raw_via_ssrf()`: Tao URL gopher va goi endpoint `/fetch` cua web-vulnerable de gui raw payload qua SSRF.
+- `build_http_request()`: Tao HTTP request thuan (GET) de blast sang service noi bo.
+- `send_redis_via_ssrf()`: Wrapper goi Redis qua SSRF.
 - `verify_marker_with_kubectl()`: Kiem tra file danh dau trong pod worker-vulnerable (tuy chon).
-- `main()`: Tao pickle doc, LPUSH vao hang doi Redis, kiem tra LLEN va (neu chon) verify bang kubectl.
+- `main()`: Tao pickle doc, LPUSH vao hang doi Redis, kiem tra LLEN va (neu chon) verify bang kubectl. Co them `--blast-only` de chi probe lateral.
 
 ## Diem vulnerable o dau?
 1) **Web SSRF qua gopher**
    - Endpoint `/fetch` chap nhan URL gopher va gui payload thuan ra TCP, cho phep truy cap dich vu noi bo (Redis).
+
+   - Khi chua ap NetworkPolicy, SSRF co the truy cap cac pod noi bo khac (blast lateral).
 
 2) **Redis mo trong mang noi bo, khong xac thuc**
    - Web pod co the ket noi Redis va gui lenh LPUSH/LLEN tu SSRF.

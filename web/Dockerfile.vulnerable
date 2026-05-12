@@ -6,6 +6,7 @@ COPY requirements.vulnerable.txt .
 RUN pip install --no-cache-dir -r requirements.vulnerable.txt
 
 COPY app_vulnerable.py .
+COPY templates ./templates
 
 EXPOSE 5000
 CMD ["python", "app_vulnerable.py"]
